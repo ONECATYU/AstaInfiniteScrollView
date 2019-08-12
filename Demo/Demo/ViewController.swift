@@ -68,6 +68,9 @@ class ViewController: UIViewController, AstaInfiniteScrollViewDelegate {
         view.frame = CGRect(x: 0, y: 100, width: self.view.frame.size.width, height: 158)
         view.delegate = self
         view.itemSpacing = 20
+        view.scrollDirection = .vertical
+        view.scrollDirection = .horizontal
+        view.isPagingEnabled = false
         return view
     }()
     
@@ -99,9 +102,9 @@ class ViewController: UIViewController, AstaInfiniteScrollViewDelegate {
     @objc func scrollTo() {
         let currentIndex = infiniteScrollView.currentIndex
         if currentIndex > models.count / 2 {
-            infiniteScrollView.scrollToIndex(currentIndex - 2)
+            infiniteScrollView.scrollTo(index: currentIndex - 2)
         } else {
-            infiniteScrollView.scrollToIndex(currentIndex + 2)
+            infiniteScrollView.scrollTo(index: currentIndex + 2)
         }
     }
 
@@ -121,7 +124,13 @@ class ViewController: UIViewController, AstaInfiniteScrollViewDelegate {
     }
     
     func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didSelectedItemAt indexPath: IndexPath) {
-        infiniteScrollView.reloadData()
+        let index = infiniteScrollView.index(for: indexPath)
+        print("infiniteScrollView: didSelectedItemAt: ", indexPath, " index: ", index)
+    }
+    
+    func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didScrollToItemAt indexPath: IndexPath) {
+        let index = infiniteScrollView.index(for: indexPath)
+        print("infiniteScrollView: didScrollToItemAt: ", indexPath, " index: ", index)
     }
 }
 

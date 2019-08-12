@@ -13,7 +13,7 @@ import UIKit
     func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell
     
     @objc optional func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didSelectedItemAt indexPath: IndexPath)
-    @objc optional func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didScrollToItemAt iindexPath: IndexPath)
+    @objc optional func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didScrollToItemAt indexPath: IndexPath)
 }
 
 class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
@@ -28,9 +28,25 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
     
     var isInfiniteScrollEnabled: Bool = true
     
-    var isAutoScrollEnabled: Bool = true
+    var isAutoScrollEnabled: Bool = true {
+        willSet {
+            if newValue {
+                setupTimer()
+            } else {
+                invalidateTimer()
+            }
+        }
+    }
     
-    var autoScrollTimeInterval: TimeInterval = 2.0
+    var autoScrollTimeInterval: TimeInterval = 2.0 {
+        willSet {
+            if newValue > 0 {
+                setupTimer()
+            } else {
+                invalidateTimer()
+            }
+        }
+    }
     
     var isPagingEnabled: Bool = true {
         willSet {
@@ -47,20 +63,9 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         get { return flowLayout.scrollDirection }
     }
     
-    var itemSpacing: CGFloat {
-        set {
-            switch flowLayout.scrollDirection {
-            case .horizontal: flowLayout.minimumLineSpacing = newValue
-            case .vertical: flowLayout.minimumInteritemSpacing = newValue
-            @unknown default: fatalError()
-            }
-        }
-        get {
-            switch flowLayout.scrollDirection {
-            case .horizontal: return flowLayout.minimumLineSpacing
-            case .vertical: return flowLayout.minimumInteritemSpacing
-            @unknown default: fatalError()
-            }
+    var itemSpacing: CGFloat = 0 {
+        didSet {
+            collectionView.reloadData()
         }
     }
     
@@ -81,6 +86,16 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
     }
     
     var showPageControl: Bool = true
+    
+    var extraItemsMultiple: Int { return 10 }
+    
+    var canInfiniteScroll: Bool {
+        return isInfiniteScrollEnabled && numberOfItems > 1
+    }
+    
+    var canAutoScroll: Bool {
+        return isAutoScrollEnabled && numberOfItems > 1 && autoScrollTimeInterval > 0
+    }
     
     var pageControl: AstaInfinitePageControl {
         return _pageControl
@@ -108,6 +123,8 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
         layout.itemSize = .zero
+        layout.minimumLineSpacing = 0
+        layout.minimumInteritemSpacing = 0
         return layout
         }() {
         willSet {
@@ -115,17 +132,19 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         }
     }
     
-    private lazy var cellIdentifierSet: Set<String> = []
-    
     private var numberOfItems: Int {
         let num = collectionView.numberOfItems(inSection: 0)
         return num / extraItemsMultiple
     }
     
-    private var extraItemsMultiple = 20
-    private var currentExtraItemIndex = 0
-    private var canInfiniteScrollEnabled: Bool {
-        return isInfiniteScrollEnabled && numberOfItems > 1
+    private lazy var cellIdentifierSet: Set<String> = []
+    
+    private var timer: Timer?
+    
+    private var currentExtraItemIndex = 0 {
+        willSet {
+            delegate?.infiniteScrollView?(self, didScrollToItemAt: IndexPath(item: newValue, section: 0))
+        }
     }
     
     
@@ -145,6 +164,18 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         if collectionView.contentOffset == .zero {
             scrollToIndex(0)
         }
+    }
+    
+    override func willMove(toSuperview newSuperview: UIView?) {
+        super.willMove(toSuperview: newSuperview)
+        if isAutoScrollEnabled && timer == nil {
+            setupTimer()
+        }
+    }
+    
+    override func removeFromSuperview() {
+        super.removeFromSuperview()
+        invalidateTimer()
     }
     
 }
@@ -187,6 +218,10 @@ extension AstaInfiniteScrollView {
         return itemSize
     }
     
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+        return itemSpacing
+    }
+    
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         delegate?.infiniteScrollView?(self, didSelectedItemAt: indexPath)
     }
@@ -196,35 +231,35 @@ extension AstaInfiniteScrollView {
         var targetOffset: CGFloat = 0
         var targetVelocity: CGFloat = 0
         if flowLayout.scrollDirection == .horizontal {
-            pagingSize = itemSize.width + flowLayout.minimumLineSpacing
+            pagingSize = itemSize.width + itemSpacing
             targetOffset = targetContentOffset.pointee.x
             targetVelocity = velocity.x
         } else {
-            pagingSize = itemSize.height + flowLayout.minimumInteritemSpacing
+            pagingSize = itemSize.height + itemSpacing
             targetOffset = targetContentOffset.pointee.y
             targetVelocity = velocity.y
         }
         
-        if isPagingEnabled == false {
-            currentExtraItemIndex = Int(round(Double(targetOffset / pagingSize)))
-            return
+        var resultIndex: Int = currentExtraItemIndex
+        if isPagingEnabled {
+            if abs(targetVelocity) >= 0.25 {
+                resultIndex = targetVelocity > 0 ? currentExtraItemIndex + 1 : currentExtraItemIndex - 1
+            } else  {
+                let pageIndex = Int(round(Double(targetOffset / pagingSize)))
+                let minusIndex = pageIndex - currentExtraItemIndex
+                if minusIndex > 0 {
+                    resultIndex = currentExtraItemIndex + 1
+                } else if minusIndex < 0 {
+                    resultIndex = currentExtraItemIndex - 1
+                } else {
+                    resultIndex = pageIndex
+                }
+            }
+            resultIndex = max(0, min(numberOfItems * extraItemsMultiple - 1, resultIndex))
+        } else {
+            resultIndex = Int(round(Double(targetOffset / pagingSize)))
         }
         
-        var resultIndex: Int = currentExtraItemIndex
-        if abs(targetVelocity) >= 0.25 {
-            resultIndex = targetVelocity > 0 ? currentExtraItemIndex + 1 : currentExtraItemIndex - 1
-        } else  {
-            let pageIndex = Int(round(Double(targetOffset / pagingSize)))
-            let minusIndex = pageIndex - currentExtraItemIndex
-            if minusIndex > 0 {
-                resultIndex = currentExtraItemIndex + 1
-            } else if minusIndex < 0 {
-                resultIndex = currentExtraItemIndex - 1
-            } else {
-                resultIndex = pageIndex
-            }
-        }
-        resultIndex = max(0, min(numberOfItems * extraItemsMultiple - 1, resultIndex))
         let pointeeOffset = CGFloat(resultIndex) * pagingSize
         if flowLayout.scrollDirection == .horizontal {
             targetContentOffset.pointee.x = pointeeOffset
@@ -236,47 +271,110 @@ extension AstaInfiniteScrollView {
     
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         scrollToIndex(currentIndex)
+        if isAutoScrollEnabled {
+            setupTimer()
+        }
     }
     
-    private func calculateCurrentIndex(withOffset offset: CGPoint) -> Int {
-        switch flowLayout.scrollDirection {
-        case .horizontal:
-            let index = offset.x / (itemSize.width + flowLayout.minimumLineSpacing)
-            return Int(ceil(index))
-        case .vertical:
-            let index = offset.y / (itemSize.width + flowLayout.minimumInteritemSpacing)
-            return Int(ceil(index))
-        @unknown default:
-            fatalError()
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        if isAutoScrollEnabled {
+            invalidateTimer()
         }
     }
 }
 
-// MARK: scroll handler
+// MARK: some func
 extension AstaInfiniteScrollView {
     
-    func scrollToIndex(_ index: Int, animated: Bool = false) {
+    func scrollTo(index: Int, animated: Bool = false) {
         guard index < numberOfItems else { return }
-        guard canInfiniteScrollEnabled else {
+        if isAutoScrollEnabled {
+            invalidateTimer()
+        }
+        scrollToIndex(index)
+        if isAutoScrollEnabled {
+            setupTimer()
+        }
+    }
+    
+    func reloadData() {
+        collectionView.reloadData()
+    }
+    
+    func index(for indexPath: IndexPath) -> Int {
+        return index(for: indexPath.item)
+    }
+    
+    private func index(for index: Int) -> Int {
+        let numberOfItems = self.numberOfItems
+        guard canInfiniteScroll else {
+            return index
+        }
+        return index % numberOfItems
+    }
+    
+    private func invalidateTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func setupTimer() {
+        invalidateTimer()
+        timer = Timer(
+            timeInterval: autoScrollTimeInterval,
+            target: self,
+            selector: #selector(autoScrollHandler),
+            userInfo: nil,
+            repeats: true
+        )
+        RunLoop.current.add(timer!, forMode: .common)
+    }
+    
+    private func scrollToIndex(_ index: Int, animated: Bool = false) {
+        if canInfiniteScroll {
+            let numberOfItems = self.numberOfItems
+            let midIndex = numberOfItems * extraItemsMultiple / 2
+            let minusIndex = index - currentIndex
+            let currentItem = midIndex + currentIndex
+            let currentIndexPath = IndexPath(item: currentItem, section: 0)
+            collectionView.scrollToItem(at: currentIndexPath, at: .init(rawValue: 0), animated: false)
+            if minusIndex == 0 {
+                currentExtraItemIndex = currentItem
+            } else {
+                let toIndex = currentItem + minusIndex
+                let toIndexPath = IndexPath(item: toIndex, section: 0)
+                collectionView.scrollToItem(at: toIndexPath, at: .init(rawValue: 0), animated: true)
+                currentExtraItemIndex = toIndex
+            }
+        } else {
             let currentIndexPath = IndexPath(item: index, section: 0)
             collectionView.scrollToItem(at: currentIndexPath, at: .init(rawValue: 0), animated: true)
             currentExtraItemIndex = index
-            return
         }
-        let numberOfItems = self.numberOfItems
-        let midIndex = numberOfItems * extraItemsMultiple / 2
-        let minusIndex = index - currentIndex
-        let currentItem = midIndex + currentIndex
-        let currentIndexPath = IndexPath(item: currentItem, section: 0)
-        collectionView.scrollToItem(at: currentIndexPath, at: .init(rawValue: 0), animated: false)
-        if minusIndex == 0 {
-            currentExtraItemIndex = currentItem
-            return
+    }
+    
+    @objc private func autoScrollHandler() {
+        guard canAutoScroll else { return }
+        var toIndex = currentIndex + 1
+        if isInfiniteScrollEnabled {
+            if toIndex > numberOfItems - 1 {
+                let numberOfItems = self.numberOfItems
+                let midItemIndex = numberOfItems * extraItemsMultiple / 2
+                let toItemIndex = midItemIndex + currentIndex + 1
+                let toItemIndexPath = IndexPath(item: toItemIndex, section: 0)
+                collectionView.scrollToItem(at: toItemIndexPath, at: .init(rawValue: 0), animated: true)
+                currentExtraItemIndex = toItemIndex
+                return
+            }
+            scrollToIndex(toIndex, animated: true)
+        } else {
+            if toIndex > numberOfItems - 1 {
+                toIndex = 0
+            }
+            let toIndexPath = IndexPath(item: toIndex, section: 0)
+            collectionView.scrollToItem(at: toIndexPath, at: .init(rawValue: 0), animated: true)
+            currentExtraItemIndex = toIndex
         }
-        let toIndex = currentItem + minusIndex
-        let toIndexPath = IndexPath(item: toIndex, section: 0)
-        collectionView.scrollToItem(at: toIndexPath, at: .init(), animated: true)
-        currentExtraItemIndex = toIndex
     }
 }
 
@@ -302,21 +400,6 @@ extension AstaInfiniteScrollView {
             }
         }
         return cellIdentifier
-    }
-    
-    func reloadData() {
-        collectionView.reloadData()
-    }
-    
-    func index(for indexPath: IndexPath) -> Int {
-        return index(for: indexPath.item)
-    }
-    
-    private func index(for index: Int) -> Int {
-        guard index > 0, isInfiniteScrollEnabled == true, numberOfItems > 1 else {
-            return index
-        }
-        return index % numberOfItems
     }
 }
 
