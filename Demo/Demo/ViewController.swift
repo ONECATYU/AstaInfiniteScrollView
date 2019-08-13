@@ -64,23 +64,14 @@ class DemoCell: UICollectionViewCell {
 class ViewController: UIViewController, AstaInfiniteScrollViewDelegate {
     
     lazy var infiniteScrollView: AstaInfiniteScrollView = {
-        let view = AstaInfiniteScrollView()
-        view.delegate = self
-        view.itemSpacing = 12
-        view.scrollDirection = .vertical
-        view.scrollDirection = .horizontal
-//        view.isPagingEnabled = false
-//        view.isInfiniteScrollEnabled = false
-//        view.isAutoScrollEnabled = false
-        var size = CGSize(width: self.view.frame.size.width, height: 160)
-        if view.scrollDirection == .horizontal {
-            view.itemSize = CGSize(width: size.width - 80, height: 0)
-        } else {
-            size.height = 230
-            view.itemSize = CGSize(width: 0, height: size.height - 80)
-        }
-        view.frame = CGRect(x: 0, y: 100, width: size.width, height: size.height)
-        return view
+        let infiniteScrollView = AstaInfiniteScrollView()
+        infiniteScrollView.delegate = self
+        infiniteScrollView.itemSpacing = 20
+        infiniteScrollView.scrollDirection = .vertical
+        infiniteScrollView.scrollDirection = .horizontal
+        infiniteScrollView.pageControl.style = .line
+        infiniteScrollView.frame = CGRect(x: 0, y: 100, width: self.view.frame.size.width, height: 160)
+        return infiniteScrollView
     }()
     
     lazy var button: UIButton = {

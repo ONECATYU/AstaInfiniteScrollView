@@ -60,16 +60,14 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         }
     }
     
-    var currentIndex: Int {
-        return index(for: currentExtraItemIndex)
-    }
+    private(set) var currentIndex: Int = 0
     
     var scrollDirection: UICollectionView.ScrollDirection {
         set { flowLayout.scrollDirection = newValue }
         get { return flowLayout.scrollDirection }
     }
     
-    var scrollPosition: ScrollPosition = .center
+    var scrollPosition: ScrollPosition = .start
     
     var itemSpacing: CGFloat = 0 {
         didSet {
@@ -105,16 +103,12 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         return isAutoScrollEnabled && numberOfItems > 1 && autoScrollTimeInterval > 0
     }
     
-    var pageControl: AstaInfinitePageControl {
-        return _pageControl
-    }
-    
-    private lazy var _pageControl: AstaInfinitePageControl = {
+    private(set) lazy var pageControl: AstaInfinitePageControl = {
         let pageControl = AstaInfinitePageControl()
         return pageControl
     }()
     
-    private lazy var collectionView: UICollectionView = {
+    private(set) lazy var collectionView: UICollectionView = {
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: self.flowLayout)
         collectionView.backgroundColor = UIColor.white
         collectionView.delegate = self
@@ -141,11 +135,16 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
     }
     
     private var numberOfItems: Int {
-        var num = collectionView.numberOfItems(inSection: 0)
-        if isInfiniteScrollEnabled {
-            num = num / extraItemsMultiple
+        set {
+            pageControl.numberOfPages = newValue
         }
-        return num
+        get {
+            var num = collectionView.numberOfItems(inSection: 0)
+            if isInfiniteScrollEnabled {
+                num = num / extraItemsMultiple
+            }
+            return num
+        }
     }
     
     private lazy var cellIdentifierSet: Set<String> = []
@@ -155,6 +154,8 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
     private var currentExtraItemIndex = 0 {
         willSet {
             delegate?.infiniteScrollView?(self, didScrollToItemAt: IndexPath(item: newValue, section: 0))
+            currentIndex = index(for: newValue)
+            pageControl.currentPage = currentIndex
         }
     }
     
@@ -195,6 +196,7 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
 extension AstaInfiniteScrollView {
     func setupSubviews() {
         addSubview(collectionView)
+        addSubview(pageControl)
     }
     
     func setupSubviewsLayout(withSize containerSize: CGSize) {
@@ -208,6 +210,13 @@ extension AstaInfiniteScrollView {
             width: contentSize.width,
             height: contentSize.height
         )
+        let pageControlSize = pageControl.size(forNumberOfPages: numberOfItems)
+        pageControl.frame = CGRect(
+            x: padding.left,
+            y: contentSize.height - pageControlSize.height - padding.bottom - 20,
+            width: contentSize.width,
+            height: pageControlSize.height
+        )
     }
 }
 
@@ -215,6 +224,7 @@ extension AstaInfiniteScrollView {
 extension AstaInfiniteScrollView {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         var num = delegate?.numberOfItems(in: self) ?? 0
+        numberOfItems = num
         if isInfiniteScrollEnabled {
             num = num * extraItemsMultiple
         }
