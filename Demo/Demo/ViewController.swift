@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Kingfisher
 
 func randomColor() -> UIColor {
     func randomNum(from: Int = 0, to: Int = 100) -> CGFloat {
@@ -18,119 +19,68 @@ func randomColor() -> UIColor {
 class DemoModel {
     var title: String
     var color: UIColor = randomColor()
+    var imageUrl: String
     
-    init(title: String) {
+    init(title: String, imageUrl: String) {
         self.title = title
+        self.imageUrl = imageUrl
     }
 }
 
-class DemoCell: UICollectionViewCell {
-    
-    var imageView: UIImageView = UIImageView()
-    
-    lazy var titleLabel: UILabel = {
-        let label = UILabel()
-        label.font = UIFont.systemFont(ofSize: 15)
-        label.textColor = .white
-        label.numberOfLines = 2
-        label.backgroundColor = UIColor.black.withAlphaComponent(0.5)
-        return label
+extension DemoModel: CustomStringConvertible {
+    var description: String {
+        return "title: \(title), imageUrl: \(imageUrl)"
+    }
+}
+
+class AstaImageCell: UICollectionViewCell {
+    lazy var imageView: UIImageView = {
+        let imageView = UIImageView()
+        self.contentView.addSubview(imageView)
+        return imageView
     }()
-    
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        contentView.addSubview(imageView)
-        contentView.addSubview(titleLabel)
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
     
     override func layoutSubviews() {
         super.layoutSubviews()
         imageView.frame = contentView.bounds
-        var labelSize = titleLabel.sizeThatFits(contentView.bounds.size)
-        labelSize.height += 10
-        titleLabel.frame = CGRect(
-            x: 0,
-            y: contentView.bounds.size.height - labelSize.height,
-            width: contentView.bounds.size.width,
-            height: labelSize.height
-        )
     }
 }
 
-class ViewController: UIViewController, AstaInfiniteScrollViewDelegate {
+class ViewController: UIViewController {
     
-    lazy var infiniteScrollView: AstaInfiniteScrollView = {
-        let infiniteScrollView = AstaInfiniteScrollView()
-        infiniteScrollView.delegate = self
-        infiniteScrollView.itemSpacing = 20
-        infiniteScrollView.scrollDirection = .vertical
-        infiniteScrollView.scrollDirection = .horizontal
-        infiniteScrollView.pageControl.style = .line
-        infiniteScrollView.frame = CGRect(x: 0, y: 100, width: self.view.frame.size.width, height: 160)
-        return infiniteScrollView
-    }()
-    
-    lazy var button: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setTitle("scroll to", for: .normal)
-        button.addTarget(self, action: #selector(scrollTo), for: .touchUpInside)
-        button.setTitleColor(.blue, for: .normal)
-        let size = self.view.frame.size
-        button.center = CGPoint(x: size.width / 2, y: 100 / 2 + size.height - 100)
-        button.bounds = CGRect(x: 0, y: 0, width: 120, height: 30)
-        return button
+    lazy var banner: AstaSimpleInfiniteView = {
+        let banner = AstaSimpleInfiniteView(frame: .zero, cellType: .class(AstaImageCell.self))
+        banner.itemSpacing = 20
+        banner.scrollDirection = .vertical
+        banner.scrollDirection = .horizontal
+        banner.pageControl.style = .line
+        banner.scrollPosition = .center
+        banner.itemSize = CGSize(width: self.view.frame.size.width - 40, height: 0)
+        banner.frame = CGRect(x: 0, y: 100, width: self.view.frame.size.width, height: 160)
+        banner.renderItem({ (index, model, cell) in
+            let imageCell = cell as! AstaImageCell
+            let demoModel = model as! DemoModel
+            imageCell.imageView.kf.setImage(with: URL(string: demoModel.imageUrl))
+        })
+        banner.didTapItem({ (index, model) in
+            print("didTap index: ", index, "model: ", model)
+        })
+        return banner
     }()
     
     let models = [
-        DemoModel(title: "11111111111"),
-        DemoModel(title: "22222222222"),
-        DemoModel(title: "33333333333"),
-        DemoModel(title: "44444444444"),
-        DemoModel(title: "55555555555"),
+        DemoModel(title: "11111111111", imageUrl: "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1566290625282&di=456243042e10c72fcb7456230dd97173&imgtype=0&src=http%3A%2F%2Fpic.k73.com%2Fup%2Fsoft%2F2016%2F0102%2F092635_44907394.jpg"),
+        DemoModel(title: "22222222222", imageUrl: "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1566290625281&di=9049b298ba19b92ed268fa00f2a50fe6&imgtype=0&src=http%3A%2F%2Fimage.finance.china.cn%2Fupload%2Fimages%2F2014%2F0410%2F085000%2F0_2323627_580fd395d60d023a4cf8b45c31cd1218.jpg"),
+        DemoModel(title: "33333333333", imageUrl: "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1566290625277&di=efb7ef4e1665eeffca7605de0ffa7fff&imgtype=0&src=http%3A%2F%2Fp1.pstatp.com%2Flarge%2Fpgc-image%2F948b049950354e949b115205ceda925c"),
+        DemoModel(title: "44444444444", imageUrl: "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1566290625272&di=15bee3b3c4c3802d10809faa2e031e65&imgtype=0&src=http%3A%2F%2Fs16.sinaimg.cn%2Fmw690%2F006wmg2Hzy76gSxP8Hd4f%26690"),
+        DemoModel(title: "55555555555", imageUrl: "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1566290625272&di=3fe73dc1f1ee6bc8050502beb42e6844&imgtype=0&src=http%3A%2F%2Fb-ssl.duitang.com%2Fuploads%2Fitem%2F201111%2F24%2F20111124171617_iNukV.jpg"),
     ]
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.addSubview(infiniteScrollView)
-        view.addSubview(button)
+        view.addSubview(banner)
+        banner.dataModels = models
     }
 
-    @objc func scrollTo() {
-        let currentIndex = infiniteScrollView.currentIndex
-        if currentIndex > models.count / 2 {
-            infiniteScrollView.scrollTo(index: currentIndex - 2)
-        } else {
-            infiniteScrollView.scrollTo(index: currentIndex + 2)
-        }
-    }
-
-    func numberOfItems(in infiniteScrollView: AstaInfiniteScrollView) -> Int {
-        return models.count
-    }
-    
-    func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let index = infiniteScrollView.index(for: indexPath)
-        let model = models[index]
-        let cell = infiniteScrollView.dequeueReusableCell(withType: .class(DemoCell.self), for: indexPath)
-        if let demoCell = cell as? DemoCell {
-            demoCell.titleLabel.text = model.title
-            demoCell.contentView.backgroundColor = model.color
-        }
-        return cell
-    }
-    
-    func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didSelectedItemAt indexPath: IndexPath) {
-        let index = infiniteScrollView.index(for: indexPath)
-        print("infiniteScrollView: didSelectedItemAt: ", indexPath, " index: ", index)
-    }
-    
-    func infiniteScrollView(_ infiniteScrollView: AstaInfiniteScrollView, didScrollToItemAt indexPath: IndexPath) {
-        let index = infiniteScrollView.index(for: indexPath)
-        print("infiniteScrollView: didScrollToItemAt: ", indexPath, " index: ", index)
-    }
 }
 

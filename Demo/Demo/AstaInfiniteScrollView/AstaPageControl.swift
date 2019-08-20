@@ -8,7 +8,7 @@
 
 import UIKit
 
-class AstaInfinitePageControl: UIView {
+class AstaPageControl: UIView {
     
     enum Style {
         case dot, line
@@ -64,6 +64,10 @@ class AstaInfinitePageControl: UIView {
         return self.size(forNumberOfPages: numberOfPages)
     }
     
+    override var intrinsicContentSize: CGSize {
+        return size(forNumberOfPages: numberOfPages)
+    }
+    
     func size(forNumberOfPages pageCount: Int) -> CGSize {
         if numberOfPages <= 0 { return .zero }
         switch style {
@@ -77,7 +81,7 @@ class AstaInfinitePageControl: UIView {
     }
 }
 
-extension AstaInfinitePageControl {
+extension AstaPageControl {
     
     @discardableResult
     private func indicatorLayer(for index: Int) -> CALayer {

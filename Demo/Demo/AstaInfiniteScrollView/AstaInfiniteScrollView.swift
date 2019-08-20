@@ -103,8 +103,8 @@ class AstaInfiniteScrollView: UIView, UICollectionViewDelegate, UICollectionView
         return isAutoScrollEnabled && numberOfItems > 1 && autoScrollTimeInterval > 0
     }
     
-    private(set) lazy var pageControl: AstaInfinitePageControl = {
-        let pageControl = AstaInfinitePageControl()
+    private(set) lazy var pageControl: AstaPageControl = {
+        let pageControl = AstaPageControl()
         return pageControl
     }()
     
